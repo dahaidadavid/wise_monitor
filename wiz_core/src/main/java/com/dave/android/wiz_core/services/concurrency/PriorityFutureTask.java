@@ -13,17 +13,16 @@ import java.util.concurrent.FutureTask;
  * @author rendawei
  * @date 2018/6/5
  */
-public class IPriorityFutureTask<V> extends FutureTask<V> implements IDependency<ITask>,
-        IPriorityProvider, ITask, IDelegateProvider {
+public class PriorityFutureTask<V> extends FutureTask<V> implements IDependency<ITask>, IPriorityProvider, ITask, IDelegateProvider {
 
     private final Object delegate;
 
-    public IPriorityFutureTask(Callable<V> callable) {
+    public PriorityFutureTask(Callable<V> callable) {
         super(callable);
         this.delegate = checkAndInitDelegate(callable);
     }
 
-    public IPriorityFutureTask(Runnable runnable, V result) {
+    public PriorityFutureTask(Runnable runnable, V result) {
         super(runnable, result);
         this.delegate = checkAndInitDelegate(runnable);
     }
@@ -79,7 +78,6 @@ public class IPriorityFutureTask<V> extends FutureTask<V> implements IDependency
     }
 
     private  <T extends IDependency<ITask> & IPriorityProvider & ITask> T checkAndInitDelegate(Object object) {
-        return (T) (
-                IPriorityTask.isProperDelegate(object) ? (IDependency) object : new IPriorityTask());
+        return (T) (PriorityTask.isProperDelegate(object) ? (IDependency) object : new PriorityTask());
     }
 }

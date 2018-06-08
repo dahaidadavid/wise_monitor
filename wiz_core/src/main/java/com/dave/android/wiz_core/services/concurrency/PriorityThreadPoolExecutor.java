@@ -1,6 +1,7 @@
 package com.dave.android.wiz_core.services.concurrency;
 
 import android.annotation.TargetApi;
+import android.support.annotation.NonNull;
 import com.dave.android.wiz_core.services.concurrency.rules.IDependency;
 import com.dave.android.wiz_core.services.concurrency.rules.IPriorityProvider;
 import com.dave.android.wiz_core.services.concurrency.rules.ITask;
@@ -22,16 +23,18 @@ public class PriorityThreadPoolExecutor extends ThreadPoolExecutor {
     private static final int MAXIMUM_POOL_SIZE;
     private static final long KEEP_ALIVE = 1L;
 
+    static {
+        CORE_POOL_SIZE = CPU_COUNT + 1;
+        MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
+    }
+
     <T extends Runnable & IDependency & ITask & IPriorityProvider> PriorityThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, DependencyPriorityBlockingQueue<T> workQueue, ThreadFactory factory) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, (BlockingQueue) workQueue, factory);
         this.prestartAllCoreThreads();
     }
 
-    public static <T extends Runnable & IDependency & ITask & IPriorityProvider> PriorityThreadPoolExecutor create(
-            int corePoolSize, int maxPoolSize) {
-        return new PriorityThreadPoolExecutor(corePoolSize, maxPoolSize, KEEP_ALIVE, TimeUnit.SECONDS,
-                new DependencyPriorityBlockingQueue(),
-                new PriorityThreadPoolExecutor.PriorityThreadFactory(10));
+    public static <T extends Runnable & IDependency & ITask & IPriorityProvider> PriorityThreadPoolExecutor create(int corePoolSize, int maxPoolSize) {
+        return new PriorityThreadPoolExecutor(corePoolSize, maxPoolSize, KEEP_ALIVE, TimeUnit.SECONDS, new DependencyPriorityBlockingQueue<T>(), new PriorityThreadPoolExecutor.PriorityThreadFactory(10));
     }
 
     public static PriorityThreadPoolExecutor create(int threadCount) {
@@ -42,24 +45,27 @@ public class PriorityThreadPoolExecutor extends ThreadPoolExecutor {
         return create(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE);
     }
 
+    @Override
     protected <T> RunnableFuture<T> newTaskFor(Runnable runnable, T value) {
-        return new IPriorityFutureTask<>(runnable, value);
+        return new PriorityFutureTask<>(runnable, value);
     }
 
+    @Override
     protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable) {
-        return new IPriorityFutureTask<>(callable);
+        return new PriorityFutureTask<>(callable);
     }
 
     @TargetApi(9)
+    @Override
     public void execute(Runnable command) {
-        if (IPriorityTask.isProperDelegate(command)) {
+        if (PriorityTask.isProperDelegate(command)) {
             super.execute(command);
         } else {
             super.execute(this.newTaskFor(command, null));
         }
-
     }
 
+    @Override
     protected void afterExecute(Runnable runnable, Throwable throwable) {
         ITask task = (ITask) runnable;
         task.setFinished(true);
@@ -68,24 +74,20 @@ public class PriorityThreadPoolExecutor extends ThreadPoolExecutor {
         super.afterExecute(runnable, throwable);
     }
 
+    @Override
     public DependencyPriorityBlockingQueue getQueue() {
         return (DependencyPriorityBlockingQueue) super.getQueue();
-    }
-
-    static {
-        CORE_POOL_SIZE = CPU_COUNT + 1;
-        MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
     }
 
     protected static final class PriorityThreadFactory implements ThreadFactory {
 
         private final int threadPriority;
 
-        public PriorityThreadFactory(int threadPriority) {
+        PriorityThreadFactory(int threadPriority) {
             this.threadPriority = threadPriority;
         }
 
-        public Thread newThread(Runnable r) {
+        public Thread newThread(@NonNull Runnable r) {
             Thread thread = new Thread(r);
             thread.setPriority(this.threadPriority);
             thread.setName("Queue");

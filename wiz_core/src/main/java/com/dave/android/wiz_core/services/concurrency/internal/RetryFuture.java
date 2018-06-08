@@ -1,5 +1,7 @@
 package com.dave.android.wiz_core.services.concurrency.internal;
 
+import com.dave.android.wiz_core.services.concurrency.rules.IBackoff;
+import com.dave.android.wiz_core.services.concurrency.rules.IRetryPolicy;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -42,11 +44,11 @@ class RetryFuture<T> extends AbstractFuture<T> implements Runnable {
         }
     }
 
-    private RetryPolicy getRetryPolicy() {
+    private IRetryPolicy getRetryPolicy() {
         return this.retryState.getRetryPolicy();
     }
 
-    private Backoff getBackoff() {
+    private IBackoff getBackoff() {
         return this.retryState.getBackoff();
     }
 

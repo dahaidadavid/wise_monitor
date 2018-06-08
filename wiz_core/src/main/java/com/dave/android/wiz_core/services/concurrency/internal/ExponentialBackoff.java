@@ -1,10 +1,12 @@
 package com.dave.android.wiz_core.services.concurrency.internal;
 
+import com.dave.android.wiz_core.services.concurrency.rules.IBackoff;
+
 /**
  * @author rendawei
  * @date 2018/6/5
  */
-public class ExponentialBackoff implements Backoff {
+public class ExponentialBackoff implements IBackoff {
     private static final int DEFAULT_POWER = 2;
     private final long baseTimeMillis;
     private final int power;

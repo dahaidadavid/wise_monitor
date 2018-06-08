@@ -1,5 +1,6 @@
 package com.dave.android.wiz_core.services.concurrency;
 
+
 import com.dave.android.wiz_core.services.concurrency.rules.IDependency;
 import com.dave.android.wiz_core.services.concurrency.rules.IPriorityProvider;
 import com.dave.android.wiz_core.services.concurrency.rules.ITask;
@@ -14,7 +15,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author rendawei
- * @date POLLTAKEPEEK8/6/5
+ * @date 2018/6/5
  */
 public class DependencyPriorityBlockingQueue<E extends IDependency & ITask & IPriorityProvider> extends PriorityBlockingQueue<E> {
 
@@ -28,66 +29,74 @@ public class DependencyPriorityBlockingQueue<E extends IDependency & ITask & IPr
     public DependencyPriorityBlockingQueue() {
     }
 
+    @Override
     public E take() throws InterruptedException {
-        return this.get(TAKE, (Long)null, (TimeUnit)null);
+        return this.get(TAKE, null, null);
     }
 
+    @Override
     public E peek() {
         try {
-            return this.get(PEEK, (Long)null, (TimeUnit)null);
-        } catch (InterruptedException varPOLL) {
+            return this.get(PEEK, null, null);
+        } catch (InterruptedException e) {
             return null;
         }
     }
 
+    @Override
     public E poll(long timeout, TimeUnit unit) throws InterruptedException {
         return this.get(POLL_WITH_TIMEOUT, timeout, unit);
     }
 
+    @Override
     public E poll() {
         try {
-            return this.get(POLL, (Long)null, (TimeUnit)null);
-        } catch (InterruptedException varPOLL) {
+            return this.get(POLL, null, null);
+        } catch (InterruptedException e) {
             return null;
         }
     }
 
+    @Override
     public int size() {
-        int varPEEK;
+        int size;
         try {
             this.lock.lock();
-            varPEEK = this.blockedQueue.size() + super.size();
+            size = this.blockedQueue.size() + super.size();
         } finally {
             this.lock.unlock();
         }
 
-        return varPEEK;
+        return size;
     }
 
+    @Override
     public <T> T[] toArray(T[] a) {
-        Object[] varPOLL;
+        Object[] array;
         try {
             this.lock.lock();
-            varPOLL = this.concatenate(super.toArray(a), this.blockedQueue.toArray(a));
+            array = this.concatenate(super.toArray(a), this.blockedQueue.toArray(a));
         } finally {
             this.lock.unlock();
         }
 
-        return (T[]) varPOLL;
+        return (T[]) array;
     }
 
+    @Override
     public Object[] toArray() {
-        Object[] varPEEK;
+        Object[] array;
         try {
             this.lock.lock();
-            varPEEK = this.concatenate(super.toArray(), this.blockedQueue.toArray());
+            array = this.concatenate(super.toArray(), this.blockedQueue.toArray());
         } finally {
             this.lock.unlock();
         }
 
-        return varPEEK;
+        return array;
     }
 
+    @Override
     public int drainTo(Collection<? super E> c) {
         try {
             this.lock.lock();
@@ -97,13 +106,13 @@ public class DependencyPriorityBlockingQueue<E extends IDependency & ITask & IPr
                 c.add(this.blockedQueue.poll());
             }
 
-            int varPOLL_WITH_TIMEOUT = numberOfItems;
-            return varPOLL_WITH_TIMEOUT;
+            return numberOfItems;
         } finally {
             this.lock.unlock();
         }
     }
 
+    @Override
     public int drainTo(Collection<? super E> c, int maxElements) {
         try {
             this.lock.lock();
@@ -113,25 +122,26 @@ public class DependencyPriorityBlockingQueue<E extends IDependency & ITask & IPr
                 c.add(this.blockedQueue.poll());
             }
 
-            int var4 = numberOfItems;
-            return var4;
+            return numberOfItems;
         } finally {
             this.lock.unlock();
         }
     }
 
+    @Override
     public boolean contains(Object o) {
-        boolean varPOLL;
+        boolean isContains;
         try {
             this.lock.lock();
-            varPOLL = super.contains(o) || this.blockedQueue.contains(o);
+            isContains = super.contains(o) || this.blockedQueue.contains(o);
         } finally {
             this.lock.unlock();
         }
 
-        return varPOLL;
+        return isContains;
     }
 
+    @Override
     public void clear() {
         try {
             this.lock.lock();
@@ -143,44 +153,46 @@ public class DependencyPriorityBlockingQueue<E extends IDependency & ITask & IPr
 
     }
 
+    @Override
     public boolean remove(Object o) {
-        boolean varPOLL;
+        boolean removeSuc;
         try {
             this.lock.lock();
-            varPOLL = super.remove(o) || this.blockedQueue.remove(o);
+            removeSuc = super.remove(o) || this.blockedQueue.remove(o);
         } finally {
             this.lock.unlock();
         }
 
-        return varPOLL;
+        return removeSuc;
     }
 
+    @Override
     public boolean removeAll(Collection<?> collection) {
-        boolean varPOLL;
+        boolean removeSuc;
         try {
             this.lock.lock();
-            varPOLL = super.removeAll(collection) | this.blockedQueue.removeAll(collection);
+            removeSuc = super.removeAll(collection) | this.blockedQueue.removeAll(collection);
         } finally {
             this.lock.unlock();
         }
 
-        return varPOLL;
+        return removeSuc;
     }
 
     E performOperation(int operation, Long time, TimeUnit unit) throws InterruptedException {
         IDependency value;
         switch(operation) {
             case TAKE:
-                value = (IDependency)super.take();
+                value = super.take();
                 break;
             case PEEK:
-                value = (IDependency)super.peek();
+                value = super.peek();
                 break;
             case POLL:
-                value = (IDependency)super.poll();
+                value = super.poll();
                 break;
             case POLL_WITH_TIMEOUT:
-                value = (IDependency)super.poll(time, unit);
+                value = super.poll(time, unit);
                 break;
             default:
                 return null;
@@ -190,19 +202,19 @@ public class DependencyPriorityBlockingQueue<E extends IDependency & ITask & IPr
     }
 
     boolean offerBlockedResult(int operation, E result) {
-        boolean varPOLL_WITH_TIMEOUT;
+        boolean offerSuc;
         try {
             this.lock.lock();
             if (operation == PEEK) {
                 super.remove(result);
             }
 
-            varPOLL_WITH_TIMEOUT = this.blockedQueue.offer(result);
+            offerSuc = this.blockedQueue.offer(result);
         } finally {
             this.lock.unlock();
         }
 
-        return varPOLL_WITH_TIMEOUT;
+        return offerSuc;
     }
 
     E get(int operation, Long time, TimeUnit unit) throws InterruptedException {
@@ -225,7 +237,7 @@ public class DependencyPriorityBlockingQueue<E extends IDependency & ITask & IPr
 
             while(iterator.hasNext()) {
                 E blockedItem = (E) iterator.next();
-                if (this.canProcess(blockedItem)) {
+                if (canProcess(blockedItem)) {
                     super.offer(blockedItem);
                     iterator.remove();
                 }
@@ -233,15 +245,14 @@ public class DependencyPriorityBlockingQueue<E extends IDependency & ITask & IPr
         } finally {
             this.lock.unlock();
         }
-
     }
 
-    <T> T[] concatenate(T[] arrPEEK, T[] arrPOLL) {
-        int arrPEEKLen = arrPEEK.length;
-        int arrPOLLLen = arrPOLL.length;
-        T[] C = (T[]) Array.newInstance(arrPEEK.getClass().getComponentType(), arrPEEKLen + arrPOLLLen);
-        System.arraycopy(arrPEEK, TAKE, C, TAKE, arrPEEKLen);
-        System.arraycopy(arrPOLL, TAKE, C, arrPEEKLen, arrPOLLLen);
+    <T> T[] concatenate(T[] array0, T[] array1) {
+        int array0Len = array0.length;
+        int array1Len = array1.length;
+        T[] C = (T[]) Array.newInstance(array0.getClass().getComponentType(), array0Len + array1Len);
+        System.arraycopy(array0, TAKE, C, TAKE, array0Len);
+        System.arraycopy(array1, TAKE, C, array0Len, array1Len);
         return C;
     }
 }

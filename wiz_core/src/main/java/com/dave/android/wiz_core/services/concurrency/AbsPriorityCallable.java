@@ -6,7 +6,7 @@ import java.util.concurrent.Callable;
  * @author rendawei
  * @date 2018/6/5
  */
-public abstract class IPriorityCallable<V> extends IPriorityTask implements Callable<V> {
-    public IPriorityCallable() {
+public abstract class AbsPriorityCallable<V> extends PriorityTask implements Callable<V> {
+    public AbsPriorityCallable() {
     }
 }

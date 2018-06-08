@@ -22,6 +22,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        WiseInitCenter.with(getApplicationContext(),new InitPlugin0(),new InitPlugin1(),new InitPlugin2());
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -31,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
                         .setAction("点击启动初始化", new OnClickListener() {
                             @Override
                             public void onClick(View v) {
-                                WiseInitCenter.with(getApplicationContext(),new InitPlugin0(),new InitPlugin1(),new InitPlugin2());
+                                WiseInitCenter.getInstance().initializeKits(MainActivity.this);
                             }
                         }).show();
             }

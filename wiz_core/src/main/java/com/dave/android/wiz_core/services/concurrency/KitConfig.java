@@ -11,9 +11,7 @@ import java.lang.annotation.Target;
  */
 @Target(value = {ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface DependsOn {
-
-    Class<?>[] value();
+public @interface KitConfig {
 
     String thread() default "thread";
 }

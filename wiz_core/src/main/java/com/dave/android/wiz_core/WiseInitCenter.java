@@ -39,13 +39,11 @@ public class WiseInitCenter {
     private final Handler mainHandler;
     private final InitializationCallback<WiseInitCenter> initializationCallback;
     private final InitializationCallback<?> kitInitializationCallback;
-    private ActivityLifecycleManager activityLifecycleManager;
-    private WeakReference<Activity> activity;
     private AtomicBoolean initialized;
     private final Logger logger;
     private final boolean debuggable;
 
-    static WiseInitCenter getInstance() {
+    public static WiseInitCenter getInstance() {
         if (INSTANCE == null) {
             throw new IllegalStateException(
                     "Must Initialize WiseInitCenter before using INSTANCE()");
@@ -55,7 +53,7 @@ public class WiseInitCenter {
     }
 
     private WiseInitCenter(Context context, Map<Class<? extends Kit>, Kit> kits, PriorityThreadPoolExecutor threadPoolExecutor, Handler mainHandler, Logger logger,
-            boolean debuggable, InitializationCallback callback, Activity rootActivity) {
+            boolean debuggable, InitializationCallback callback) {
         this.context = context;
         this.kits = kits;
         this.executorService = threadPoolExecutor;
@@ -65,7 +63,6 @@ public class WiseInitCenter {
         this.initializationCallback = callback;
         this.initialized = new AtomicBoolean(false);
         this.kitInitializationCallback = this.createKitInitializationCallback(kits.size());
-        this.setCurrentActivity(rootActivity);
     }
 
     public static WiseInitCenter with(Context context, Kit... kits) {
@@ -94,40 +91,15 @@ public class WiseInitCenter {
 
     private static void setWiseInitCenter(WiseInitCenter wiseInitCenter) {
         INSTANCE = wiseInitCenter;
-        wiseInitCenter.init();
-    }
-
-    private WiseInitCenter setCurrentActivity(Activity activity) {
-        this.activity = new WeakReference<>(activity);
-        return this;
-    }
-
-    public Activity getCurrentActivity() {
-        return this.activity != null ? this.activity.get() : null;
-    }
-
-    private void init() {
-        activityLifecycleManager = new ActivityLifecycleManager(context);
-        activityLifecycleManager.registerCallbacks(new Callbacks() {
-            public void onActivityCreated(Activity activity, Bundle bundle) {
-                setCurrentActivity(activity);
-            }
-
-            public void onActivityStarted(Activity activity) {
-                setCurrentActivity(activity);
-            }
-
-            public void onActivityResumed(Activity activity) {
-                setCurrentActivity(activity);
-            }
-        });
-        initializeKits(context);
     }
 
     /**
      * 初始化
      */
-    private void initializeKits(Context context) {
+    public void initializeKits(Context context) {
+        if(isInitialized()){
+            return;
+        }
         //获取用户传递的需要初始化的插件
         List<Kit> kits = new ArrayList<>(getKits());
         Collections.sort(kits);
@@ -145,20 +117,20 @@ public class WiseInitCenter {
     }
 
     /**
-     * 寻找当前任务的依赖项
+     * 寻找当前任务的依赖项，并将它的初始化任务添加进来，组成一个关系链
      *
      * @param kits 所有的初始化插件
-     * @param dependentKit 当前需要执行的插件
+     * @param currentToBeRunKit 当前需要执行的插件
      */
-    private void addAnnotatedDependencies(@NonNull Map<Class<? extends Kit>, Kit> kits, @NonNull Kit dependentKit) {
-        DependsOn dependsOn = dependentKit.dependsOnAnnotation;
+    private void addAnnotatedDependencies(@NonNull Map<Class<? extends Kit>, Kit> kits, @NonNull Kit currentToBeRunKit) {
+        DependsOn dependsOn = currentToBeRunKit.dependsOnAnnotation;
         if (dependsOn != null) {
             Class<?>[] dependencies = dependsOn.value();
             for (Class<?> dependency : dependencies) {
                 if (dependency.isInterface()) {
                     for (Kit kit : kits.values()) {
                         if (dependency.isAssignableFrom(kit.getClass())) {
-                            dependentKit.initializationTask.addDependency(kit.initializationTask);
+                            currentToBeRunKit.initializationTask.addDependency(kit.initializationTask);
                         }
                     }
                 } else {
@@ -166,19 +138,10 @@ public class WiseInitCenter {
                     if (kit == null) {
                         throw new UnmetDependencyException("Referenced Kit was null, does the kit exist?");
                     }
-                    dependentKit.initializationTask.addDependency((kits.get(dependency)).initializationTask);
+                    currentToBeRunKit.initializationTask.addDependency(kit.initializationTask);
                 }
             }
         }
-
-    }
-
-    private static Activity extractActivity(Context context) {
-        return context instanceof Activity ? (Activity) context : null;
-    }
-
-    public ActivityLifecycleManager getActivityLifecycleManager() {
-        return activityLifecycleManager;
     }
 
     public ExecutorService getExecutorService() {
@@ -230,6 +193,11 @@ public class WiseInitCenter {
         }
     }
 
+    /**
+     * 创建插件初始化监听类，会在一个插件初始化失败或则全部成功地时候进行回调
+     * @param size 初始化插件的数量
+     * @return 插件初始化监听类
+     */
     private InitializationCallback<?> createKitInitializationCallback(final int size) {
         return new InitializationCallback() {
             final CountDownLatch kitInitializedLatch = new CountDownLatch(size);
@@ -252,12 +220,12 @@ public class WiseInitCenter {
 
         private final Context context;
         private Kit[] kits;
-        private PriorityThreadPoolExecutor threadPoolExecutor;
         private Handler handler;
         private Logger logger;
         private boolean debuggable;
-        private String appInstallIdentifier;
         private String appIdentifier;
+        private String appInstallIdentifier;
+        private PriorityThreadPoolExecutor threadPoolExecutor;
         private InitializationCallback<WiseInitCenter> initializationCallback;
 
         public Builder(Context context) {
@@ -277,16 +245,7 @@ public class WiseInitCenter {
             }
         }
 
-        /**
-         * @deprecated
-         */
-        @Deprecated
-        public WiseInitCenter.Builder executorService(ExecutorService executorService) {
-            return this;
-        }
-
-        public WiseInitCenter.Builder threadPoolExecutor(
-                PriorityThreadPoolExecutor threadPoolExecutor) {
+        public WiseInitCenter.Builder threadPoolExecutor(PriorityThreadPoolExecutor threadPoolExecutor) {
             if (threadPoolExecutor == null) {
                 throw new IllegalArgumentException("PriorityThreadPoolExecutor must not be null.");
             } else if (this.threadPoolExecutor != null) {
@@ -295,14 +254,6 @@ public class WiseInitCenter {
                 this.threadPoolExecutor = threadPoolExecutor;
                 return this;
             }
-        }
-
-        /**
-         * @deprecated
-         */
-        @Deprecated
-        public WiseInitCenter.Builder handler(Handler handler) {
-            return this;
         }
 
         public WiseInitCenter.Builder logger(Logger logger) {
@@ -343,8 +294,7 @@ public class WiseInitCenter {
             return this;
         }
 
-        public WiseInitCenter.Builder initializationCallback(
-                InitializationCallback<WiseInitCenter> initializationCallback) {
+        public WiseInitCenter.Builder initializationCallback(InitializationCallback<WiseInitCenter> initializationCallback) {
             if (initializationCallback == null) {
                 throw new IllegalArgumentException("initializationCallback must not be null.");
             } else if (this.initializationCallback != null) {
@@ -356,6 +306,7 @@ public class WiseInitCenter {
         }
 
         public WiseInitCenter build() {
+
             if (this.threadPoolExecutor == null) {
                 this.threadPoolExecutor = PriorityThreadPoolExecutor.create();
             }
@@ -389,8 +340,7 @@ public class WiseInitCenter {
 
             Context appContext = this.context.getApplicationContext();
             return new WiseInitCenter(appContext, kitMap, this.threadPoolExecutor, this.handler,
-                    this.logger, this.debuggable, this.initializationCallback,
-                    WiseInitCenter.extractActivity(this.context));
+                    this.logger, this.debuggable, this.initializationCallback);
         }
     }
 }

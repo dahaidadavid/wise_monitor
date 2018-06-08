@@ -13,12 +13,11 @@ import java.util.concurrent.ExecutorService;
  * @author rendawei
  * @date 2018/6/5
  */
-public abstract class IPriorityAsyncTask<Params, Progress, Result> extends AsyncTask<Params, Progress, Result> implements
-        IDependency<ITask>, IPriorityProvider, ITask, IDelegateProvider {
+public abstract class AbsPriorityAsyncTask<Params, Progress, Result> extends AsyncTask<Params, Progress, Result> implements IDependency<ITask>, IPriorityProvider, ITask, IDelegateProvider {
 
-    private final IPriorityTask priorityTask = new IPriorityTask();
+    private final PriorityTask priorityTask = new PriorityTask();
 
-    public IPriorityAsyncTask() {
+    public AbsPriorityAsyncTask() {
     }
 
     @Override
@@ -75,7 +74,7 @@ public abstract class IPriorityAsyncTask<Params, Progress, Result> extends Async
         return (T) priorityTask;
     }
 
-    public final void executeOnExecutor(ExecutorService exec, Params... params) {
+    public final void executeOnExecutor(Executor exec,int flag,Params... params) {
         Executor executor = new ProxyExecutor(exec, this);
         super.executeOnExecutor(executor, params);
     }
@@ -83,15 +82,15 @@ public abstract class IPriorityAsyncTask<Params, Progress, Result> extends Async
     private static class ProxyExecutor<Result> implements Executor {
 
         private final Executor executor;
-        private final IPriorityAsyncTask task;
+        private final AbsPriorityAsyncTask task;
 
-        ProxyExecutor(Executor ex, IPriorityAsyncTask task) {
+        ProxyExecutor(Executor ex, AbsPriorityAsyncTask task) {
             this.executor = ex;
             this.task = task;
         }
 
         public void execute(@NonNull Runnable command) {
-            executor.execute(new IPriorityFutureTask<Result>(command, null) {
+            executor.execute(new PriorityFutureTask<Result>(command, null) {
                 @Override
                 public <T extends IDependency<ITask> & IPriorityProvider & ITask> T getDelegate() {
                     return (T) task;

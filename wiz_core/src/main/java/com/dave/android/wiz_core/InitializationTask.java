@@ -1,13 +1,13 @@
 package com.dave.android.wiz_core;
 
 import com.dave.android.wiz_core.services.concurrency.Priority;
-import com.dave.android.wiz_core.services.concurrency.IPriorityAsyncTask;
+import com.dave.android.wiz_core.services.concurrency.AbsPriorityAsyncTask;
 
 /**
  * @author rendawei
  * @date 2018/6/5
  */
-class InitializationTask<Result> extends IPriorityAsyncTask<Void, Void, Result> {
+class InitializationTask<Result> extends AbsPriorityAsyncTask<Void, Void, Result> {
 
     private static final String TIMING_METRIC_TAG = "KitInitialization";
 

@@ -1,10 +1,12 @@
 package com.dave.android.wiz_core.services.concurrency.internal;
 
+import com.dave.android.wiz_core.services.concurrency.rules.IRetryPolicy;
+
 /**
  * @author rendawei
  * @date 2018/6/5
  */
-public class DefaultRetryPolicy implements RetryPolicy {
+public class DefaultRetryPolicy implements IRetryPolicy {
 
     private final int maxRetries;
 

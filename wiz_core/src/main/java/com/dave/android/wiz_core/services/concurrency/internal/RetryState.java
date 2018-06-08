@@ -1,5 +1,8 @@
 package com.dave.android.wiz_core.services.concurrency.internal;
 
+import com.dave.android.wiz_core.services.concurrency.rules.IBackoff;
+import com.dave.android.wiz_core.services.concurrency.rules.IRetryPolicy;
+
 /**
  * @author rendawei
  * @date 2018/6/5
@@ -7,14 +10,14 @@ package com.dave.android.wiz_core.services.concurrency.internal;
 
 public class RetryState {
     private final int retryCount;
-    private final Backoff backoff;
-    private final RetryPolicy retryPolicy;
+    private final IBackoff backoff;
+    private final IRetryPolicy retryPolicy;
 
-    public RetryState(Backoff backoff, RetryPolicy retryPolicy) {
+    public RetryState(IBackoff backoff, IRetryPolicy retryPolicy) {
         this(0, backoff, retryPolicy);
     }
 
-    public RetryState(int retryCount, Backoff backoff, RetryPolicy retryPolicy) {
+    public RetryState(int retryCount, IBackoff backoff, IRetryPolicy retryPolicy) {
         this.retryCount = retryCount;
         this.backoff = backoff;
         this.retryPolicy = retryPolicy;
@@ -28,11 +31,11 @@ public class RetryState {
         return this.backoff.getDelayMillis(this.retryCount);
     }
 
-    public Backoff getBackoff() {
+    public IBackoff getBackoff() {
         return this.backoff;
     }
 
-    public RetryPolicy getRetryPolicy() {
+    public IRetryPolicy getRetryPolicy() {
         return this.retryPolicy;
     }
 

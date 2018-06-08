@@ -1,7 +1,8 @@
-package com.dave.android.wiz_core.services.common;
+package com.dave.android.wiz_core.services.concurrency.executor;
 
-import com.dave.android.wiz_core.services.concurrency.internal.Backoff;
-import com.dave.android.wiz_core.services.concurrency.internal.RetryPolicy;
+import com.dave.android.wiz_core.services.common.BackgroundPriorityRunnable;
+import com.dave.android.wiz_core.services.concurrency.rules.IBackoff;
+import com.dave.android.wiz_core.services.concurrency.rules.IRetryPolicy;
 import com.dave.android.wiz_core.services.concurrency.internal.RetryThreadPoolExecutor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,7 +29,7 @@ public final class ExecutorUtils {
         return executor;
     }
 
-    public static RetryThreadPoolExecutor buildRetryThreadPoolExecutor(String name, int corePoolSize, RetryPolicy retryPolicy, Backoff backoff) {
+    public static RetryThreadPoolExecutor buildRetryThreadPoolExecutor(String name, int corePoolSize, IRetryPolicy retryPolicy, IBackoff backoff) {
         ThreadFactory threadFactory = getNamedThreadFactory(name);
         RetryThreadPoolExecutor executor = new RetryThreadPoolExecutor(corePoolSize, threadFactory, retryPolicy, backoff);
         addDelayedShutdownHook(name, executor);

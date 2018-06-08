@@ -3,6 +3,9 @@ package com.dave.android.wiz_core;
 import android.content.Context;
 import android.support.annotation.NonNull;
 import com.dave.android.wiz_core.services.concurrency.DependsOn;
+import com.dave.android.wiz_core.services.concurrency.KitConfig;
+import com.dave.android.wiz_core.services.concurrency.executor.HandleThreadExecutor;
+import com.dave.android.wiz_core.services.concurrency.executor.MainThreadExecutor;
 import com.dave.android.wiz_core.services.concurrency.rules.ITask;
 import java.io.File;
 import java.util.Collection;
@@ -21,7 +24,8 @@ public abstract class Kit<Result> implements Comparable<Kit> {
     InitializationTask<Result> initializationTask = new InitializationTask<>(this);
     InitializationCallback<Result> initializationCallback;
 
-    final DependsOn dependsOnAnnotation = (DependsOn) this.getClass().getAnnotation(DependsOn.class);
+    final DependsOn dependsOnAnnotation = getClass().getAnnotation(DependsOn.class);
+    final KitConfig kitConfigAnnotation = getClass().getAnnotation(KitConfig.class);
 
     public Kit() {
     }
@@ -33,7 +37,7 @@ public abstract class Kit<Result> implements Comparable<Kit> {
     }
 
     final void initialize() {
-        initializationTask.executeOnExecutor(mWiseInitCenter.getExecutorService(), new Void[]{null});
+        initializationTask.executeOnExecutor(mWiseInitCenter.getExecutorService(), 0, new Void[]{null});
     }
 
     public Context getContext() {
@@ -76,6 +80,17 @@ public abstract class Kit<Result> implements Comparable<Kit> {
 
     boolean hasAnnotatedDependency() {
         return dependsOnAnnotation != null;
+    }
+
+    boolean hasAnnotatedKitConfig() {
+        return kitConfigAnnotation != null;
+    }
+
+    String validateAnnotationThread() {
+        if (hasAnnotatedKitConfig()) {
+            return kitConfigAnnotation.thread();
+        }
+        return "thread";
     }
 
     protected Collection<ITask> getDependencies() {

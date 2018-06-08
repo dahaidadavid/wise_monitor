@@ -1,5 +1,7 @@
 package com.dave.android.wiz_core.services.concurrency.internal;
 
+import com.dave.android.wiz_core.services.concurrency.rules.IBackoff;
+import com.dave.android.wiz_core.services.concurrency.rules.IRetryPolicy;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -11,14 +13,14 @@ import java.util.concurrent.ThreadFactory;
  * @date 2018/6/5
  */
 public class RetryThreadPoolExecutor extends ScheduledThreadPoolExecutor {
-    private final RetryPolicy retryPolicy;
-    private final Backoff backoff;
+    private final IRetryPolicy retryPolicy;
+    private final IBackoff backoff;
 
-    public RetryThreadPoolExecutor(int corePoolSize, RetryPolicy retryPolicy, Backoff backoff) {
+    public RetryThreadPoolExecutor(int corePoolSize, IRetryPolicy retryPolicy, IBackoff backoff) {
         this(corePoolSize, Executors.defaultThreadFactory(), retryPolicy, backoff);
     }
 
-    public RetryThreadPoolExecutor(int corePoolSize, ThreadFactory factory, RetryPolicy retryPolicy, Backoff backoff) {
+    public RetryThreadPoolExecutor(int corePoolSize, ThreadFactory factory, IRetryPolicy retryPolicy, IBackoff backoff) {
         super(corePoolSize, factory);
         if (retryPolicy == null) {
             throw new NullPointerException("retry policy must not be null");
@@ -53,11 +55,11 @@ public class RetryThreadPoolExecutor extends ScheduledThreadPoolExecutor {
         }
     }
 
-    public RetryPolicy getRetryPolicy() {
+    public IRetryPolicy getRetryPolicy() {
         return this.retryPolicy;
     }
 
-    public Backoff getBackoff() {
+    public IBackoff getBackoff() {
         return this.backoff;
     }
 }

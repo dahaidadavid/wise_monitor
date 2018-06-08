@@ -18,13 +18,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author rendawei
  * @date 2018/6/5
  */
-public class IPriorityTask implements IDependency<ITask>, IPriorityProvider, ITask {
+public class PriorityTask implements IDependency<ITask>, IPriorityProvider, ITask {
 
     private final List<ITask> dependencies = new ArrayList<>();
     private final AtomicBoolean hasRun = new AtomicBoolean(false);
     private final AtomicReference<Throwable> throwable = new AtomicReference<>(null);
 
-    public IPriorityTask() {
+    public PriorityTask() {
     }
 
     @Override
@@ -81,7 +81,7 @@ public class IPriorityTask implements IDependency<ITask>, IPriorityProvider, ITa
     }
 
     /**
-     * 匹配任务是否符合要求
+     * 判断对象是否同时是 IDependency & ITask & IPriorityProvider 的子类
      */
     public static boolean isProperDelegate(Object object) {
         try {

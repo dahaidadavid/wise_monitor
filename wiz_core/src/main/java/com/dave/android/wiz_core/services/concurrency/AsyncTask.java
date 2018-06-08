@@ -69,7 +69,7 @@ public abstract class AsyncTask<Params, Progress, Result> {
                 try {
                     AsyncTask.this.postResultIfNotInvoked(this.get());
                 } catch (InterruptedException var2) {
-                    Log.w("AsyncTask", var2);
+                    Log.w(LOG_TAG, var2);
                 } catch (ExecutionException var3) {
                     throw new RuntimeException("An error occured while executing doInBackground()", var3.getCause());
                 } catch (CancellationException var4) {
@@ -89,7 +89,7 @@ public abstract class AsyncTask<Params, Progress, Result> {
     }
 
     private Result postResult(Result result) {
-        Message message = handler.obtainMessage(1, new AsyncTask.AsyncTaskResult(this, new Object[]{result}));
+        Message message = handler.obtainMessage(MESSAGE_POST_RESULT, new AsyncTask.AsyncTaskResult(this, new Object[]{result}));
         message.sendToTarget();
         return result;
     }
@@ -160,7 +160,7 @@ public abstract class AsyncTask<Params, Progress, Result> {
 
     protected final void publishProgress(Progress... values) {
         if (!this.isCancelled()) {
-            handler.obtainMessage(2, new AsyncTask.AsyncTaskResult(this, values)).sendToTarget();
+            handler.obtainMessage(MESSAGE_POST_PROGRESS, new AsyncTask.AsyncTaskResult(this, values)).sendToTarget();
         }
 
     }
@@ -185,8 +185,8 @@ public abstract class AsyncTask<Params, Progress, Result> {
                 return new Thread(r, "AsyncTask #" + this.count.getAndIncrement());
             }
         };
-        poolWorkQueue = new LinkedBlockingQueue(128);
-        THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, 1L, TimeUnit.SECONDS, poolWorkQueue, threadFactory);
+        poolWorkQueue = new LinkedBlockingQueue<>(128);
+        THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE, TimeUnit.SECONDS, poolWorkQueue, threadFactory);
         SERIAL_EXECUTOR = new AsyncTask.SerialExecutor(null);
         handler = new AsyncTask.InternalHandler();
         defaultExecutor = SERIAL_EXECUTOR;
@@ -227,13 +227,10 @@ public abstract class AsyncTask<Params, Progress, Result> {
         }
     }
 
-    public static enum Status {
+    public enum Status {
         PENDING,
         RUNNING,
-        FINISHED;
-
-        private Status() {
-        }
+        FINISHED
     }
 
     private static class SerialExecutor implements Executor {
@@ -241,7 +238,7 @@ public abstract class AsyncTask<Params, Progress, Result> {
         Runnable active;
 
         private SerialExecutor(Object o) {
-            this.tasks = new LinkedList();
+            this.tasks = new LinkedList<>();
         }
 
         public synchronized void execute(final Runnable r) {
@@ -262,7 +259,7 @@ public abstract class AsyncTask<Params, Progress, Result> {
         }
 
         protected synchronized void scheduleNext() {
-            if ((this.active = (Runnable)this.tasks.poll()) != null) {
+            if ((this.active =tasks.poll()) != null) {
                 AsyncTask.THREAD_POOL_EXECUTOR.execute(this.active);
             }
 
