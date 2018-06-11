@@ -2,12 +2,15 @@ package com.dave.android.wiz_moniter.plugins;
 
 import android.util.Log;
 import com.dave.android.wiz_core.Kit;
+import com.dave.android.wiz_core.services.concurrency.AsyncTask;
 import com.dave.android.wiz_core.services.concurrency.DependsOn;
+import com.dave.android.wiz_core.services.concurrency.KitConfig;
 
 /**
  * @author rendawei
  * @date 2018/6/5
  */
+@KitConfig(thread = AsyncTask.THREAD_HANDLER)
 @DependsOn(value = InitPlugin0.class)
 public class InitPlugin2 extends Kit {
 

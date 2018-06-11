@@ -4,11 +4,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
+import android.support.annotation.StringDef;
 import android.util.Log;
+import com.dave.android.wiz_core.services.concurrency.executor.ExecutorUtils;
 import java.util.LinkedList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.FutureTask;
@@ -19,101 +22,166 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
+ * 异步任务执行器
+ *
  * @author rendawei
  * @date 2018/6/5
  */
 public abstract class AsyncTask<Params, Progress, Result> {
 
     private static final String LOG_TAG = "AsyncTask";
+
+    /**
+     * Used For defined which thread to executor the task {@link KitConfig}
+     */
+    public static final String THREAD_BACKGROUND = "background";
+    public static final String THREAD_MAIN = "main";
+    public static final String THREAD_HANDLER = "threadHandler";
+
     private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
     private static final int CORE_POOL_SIZE;
     private static final int MAXIMUM_POOL_SIZE;
     private static final int KEEP_ALIVE = 1;
+
     private static final ThreadFactory threadFactory;
     private static final BlockingQueue<Runnable> poolWorkQueue;
-    public static final Executor THREAD_POOL_EXECUTOR;
-    public static final Executor SERIAL_EXECUTOR;
+    private static final Executor THREAD_POOL_EXECUTOR;
+    private static final Executor SERIAL_EXECUTOR;
     private static final int MESSAGE_POST_RESULT = 1;
     private static final int MESSAGE_POST_PROGRESS = 2;
-    private static final AsyncTask.InternalHandler handler;
+    private static final InternalHandler handler;
     private static volatile Executor defaultExecutor;
-    private final AsyncTask.WorkerRunnable<Params, Result> worker;
+
+    private final WorkerRunnable<Params, Result> worker;
     private final FutureTask<Result> future;
-    private volatile AsyncTask.Status status;
     private final AtomicBoolean cancelled;
     private final AtomicBoolean taskInvoked;
+    private final AtomicReference<String> currentRunningThread;
 
-    public static void init() {
-        handler.getLooper();
+    private volatile AsyncTask.Status status;
+
+    static {
+        CORE_POOL_SIZE = CPU_COUNT + 1;
+        MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
+        threadFactory = new ThreadFactory() {
+            private final AtomicInteger count = new AtomicInteger(1);
+
+            public Thread newThread(Runnable r) {
+                return new Thread(r, "Init AsyncTask #" + this.count.getAndIncrement());
+            }
+        };
+        poolWorkQueue = new LinkedBlockingQueue<>(128);
+        THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE,
+                TimeUnit.SECONDS, poolWorkQueue, threadFactory);
+
+        handler = new InternalHandler();
+        SERIAL_EXECUTOR = new SerialExecutor();
+        defaultExecutor = SERIAL_EXECUTOR;
     }
 
-    public static void setDefaultExecutor(Executor exec) {
-        defaultExecutor = exec;
+    private static class InternalHandler extends Handler {
+
+        InternalHandler() {
+            super(Looper.getMainLooper());
+        }
+
+        public void handleMessage(Message msg) {
+            AsyncTaskResult result = (AsyncTaskResult) msg.obj;
+            switch (msg.what) {
+                case MESSAGE_POST_RESULT:
+                    result.task.finish(result.result);
+                    break;
+                case MESSAGE_POST_PROGRESS:
+                    result.task.onProgressUpdate(result.data);
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     public AsyncTask() {
         this.status = AsyncTask.Status.PENDING;
         this.cancelled = new AtomicBoolean();
         this.taskInvoked = new AtomicBoolean();
-        this.worker = new AsyncTask.WorkerRunnable<Params, Result>() {
+        this.currentRunningThread = new AtomicReference<>(THREAD_BACKGROUND);
+        this.worker = new WorkerRunnable<Params, Result>() {
             public Result call() throws Exception {
-                AsyncTask.this.taskInvoked.set(true);
                 Process.setThreadPriority(10);
-                return AsyncTask.this.postResult(AsyncTask.this.doInBackground(this.params));
+                Result runResult = null;
+                taskInvoked.set(true);
+                switch (currentRunningThread.get()){
+                    case THREAD_BACKGROUND:
+                        runResult = doInBackground(this.params);
+                        postResult(runResult);
+                        mainLock.countDown();
+                        break;
+                    case THREAD_HANDLER:
+                        ExecutorUtils.getHandleThreadExecutor().execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                postResult(doInBackground(params));
+                                mainLock.countDown();
+                            }
+                        });
+                        break;
+                    case THREAD_MAIN:
+                        ExecutorUtils.getMainThreadExecutor().execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                postResult(doInBackground(params));
+                                mainLock.countDown();
+                            }
+                        });
+                        break;
+                    default:
+                            break;
+                }
+                mainLock.await();
+                return runResult;
             }
         };
         this.future = new FutureTask<Result>(this.worker) {
             protected void done() {
                 try {
-                    AsyncTask.this.postResultIfNotInvoked(this.get());
+                    postResultIfNotInvoked(AsyncTask.this.get());
                 } catch (InterruptedException var2) {
                     Log.w(LOG_TAG, var2);
-                } catch (ExecutionException var3) {
-                    throw new RuntimeException("An error occured while executing doInBackground()", var3.getCause());
+                } catch (ExecutionException e) {
+                    throw new RuntimeException("An error occurred while executing doInBackground()", e.getCause());
                 } catch (CancellationException var4) {
-                    AsyncTask.this.postResultIfNotInvoked(null);
+                    postResultIfNotInvoked(null);
                 }
-
             }
         };
+    }
+
+    public static void setDefaultExecutor(Executor exec) {
+        defaultExecutor = exec;
+    }
+
+    public void setCurrentRunningThread(String thread){
+        this.currentRunningThread.set(thread);
     }
 
     private void postResultIfNotInvoked(Result result) {
         boolean wasTaskInvoked = this.taskInvoked.get();
         if (!wasTaskInvoked) {
-            this.postResult(result);
+            postResult(result);
         }
-
     }
 
     private Result postResult(Result result) {
-        Message message = handler.obtainMessage(MESSAGE_POST_RESULT, new AsyncTask.AsyncTaskResult(this, new Object[]{result}));
+        Message message = handler.obtainMessage(MESSAGE_POST_RESULT, new AsyncTaskResult<>(this, result));
         message.sendToTarget();
         return result;
     }
 
     public final AsyncTask.Status getStatus() {
         return this.status;
-    }
-
-    protected abstract Result doInBackground(Params... var1);
-
-    protected void onPreExecute() {
-    }
-
-    protected void onPostExecute(Result result) {
-    }
-
-    protected void onProgressUpdate(Progress... values) {
-    }
-
-    protected void onCancelled(Result result) {
-        this.onCancelled();
-    }
-
-    protected void onCancelled() {
     }
 
     public final boolean isCancelled() {
@@ -139,11 +207,13 @@ public abstract class AsyncTask<Params, Progress, Result> {
 
     public final AsyncTask<Params, Progress, Result> executeOnExecutor(Executor exec, Params... params) {
         if (this.status != AsyncTask.Status.PENDING) {
-            switch(this.status) {
+            switch (this.status) {
                 case RUNNING:
                     throw new IllegalStateException("Cannot execute task: the task is already running.");
                 case FINISHED:
                     throw new IllegalStateException("Cannot execute task: the task has already been executed (a task can be executed only once)");
+                default:
+                    break;
             }
         }
 
@@ -154,15 +224,10 @@ public abstract class AsyncTask<Params, Progress, Result> {
         return this;
     }
 
-    public static void execute(Runnable runnable) {
-        defaultExecutor.execute(runnable);
-    }
-
     protected final void publishProgress(Progress... values) {
         if (!this.isCancelled()) {
-            handler.obtainMessage(MESSAGE_POST_PROGRESS, new AsyncTask.AsyncTaskResult(this, values)).sendToTarget();
+            handler.obtainMessage(MESSAGE_POST_PROGRESS, new AsyncTaskResult<>(this, null, values)).sendToTarget();
         }
-
     }
 
     private void finish(Result result) {
@@ -175,56 +240,42 @@ public abstract class AsyncTask<Params, Progress, Result> {
         this.status = AsyncTask.Status.FINISHED;
     }
 
-    static {
-        CORE_POOL_SIZE = CPU_COUNT + 1;
-        MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
-        threadFactory = new ThreadFactory() {
-            private final AtomicInteger count = new AtomicInteger(1);
+    protected void onPreExecute() {}
 
-            public Thread newThread(Runnable r) {
-                return new Thread(r, "AsyncTask #" + this.count.getAndIncrement());
-            }
-        };
-        poolWorkQueue = new LinkedBlockingQueue<>(128);
-        THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE, TimeUnit.SECONDS, poolWorkQueue, threadFactory);
-        SERIAL_EXECUTOR = new AsyncTask.SerialExecutor(null);
-        handler = new AsyncTask.InternalHandler();
-        defaultExecutor = SERIAL_EXECUTOR;
+    protected abstract Result doInBackground(Params... var1);
+
+    protected void onProgressUpdate(Progress... values) {}
+
+    protected void onPostExecute(Result result) {}
+
+    protected void onCancelled(Result result) {
+        this.onCancelled();
     }
 
-    private static class AsyncTaskResult<Data> {
-        final AsyncTask task;
-        final Data[] data;
+    protected void onCancelled() {
+    }
 
-        AsyncTaskResult(AsyncTask task, Data... data) {
+    /**
+     * 异步结果
+     * @param <Result>
+     * @param <Progress>
+     */
+    private static class AsyncTaskResult<Result,Progress> {
+
+        final AsyncTask task;
+        final Result result;
+        final Progress[] data;
+
+        AsyncTaskResult(AsyncTask task,Result result, Progress... data) {
             this.task = task;
+            this.result = result;
             this.data = data;
         }
     }
 
     private abstract static class WorkerRunnable<Params, Result> implements Callable<Result> {
+        CountDownLatch mainLock = new CountDownLatch(1);
         Params[] params;
-
-        private WorkerRunnable() {
-        }
-    }
-
-    private static class InternalHandler extends Handler {
-        public InternalHandler() {
-            super(Looper.getMainLooper());
-        }
-
-        public void handleMessage(Message msg) {
-            AsyncTask.AsyncTaskResult result = (AsyncTask.AsyncTaskResult)msg.obj;
-            switch(msg.what) {
-                case 1:
-                    result.task.finish(result.data[0]);
-                    break;
-                case 2:
-                    result.task.onProgressUpdate(result.data);
-            }
-
-        }
     }
 
     public enum Status {
@@ -233,36 +284,38 @@ public abstract class AsyncTask<Params, Progress, Result> {
         FINISHED
     }
 
+    /**
+     * 序列化执行器，内部维护一个队列来顺序执行任务
+     */
     private static class SerialExecutor implements Executor {
-        final LinkedList<Runnable> tasks;
-        Runnable active;
 
-        private SerialExecutor(Object o) {
+        final LinkedList<Runnable> tasks;
+        private Runnable active;
+
+        private SerialExecutor() {
             this.tasks = new LinkedList<>();
         }
 
         public synchronized void execute(final Runnable r) {
-            this.tasks.offer(new Runnable() {
+            tasks.offer(new Runnable() {
                 public void run() {
                     try {
                         r.run();
                     } finally {
-                        SerialExecutor.this.scheduleNext();
+                        scheduleNext();
                     }
-
                 }
             });
-            if (this.active == null) {
-                this.scheduleNext();
+            if (active == null) {
+                scheduleNext();
             }
 
         }
 
-        protected synchronized void scheduleNext() {
-            if ((this.active =tasks.poll()) != null) {
-                AsyncTask.THREAD_POOL_EXECUTOR.execute(this.active);
+        synchronized void scheduleNext() {
+            if ((active = tasks.poll()) != null) {
+                THREAD_POOL_EXECUTOR.execute(active);
             }
-
         }
     }
 }

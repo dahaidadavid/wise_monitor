@@ -1,5 +1,6 @@
 package com.dave.android.wiz_moniter.plugins;
 
+import android.os.Looper;
 import android.util.Log;
 import com.dave.android.wiz_core.Kit;
 import com.dave.android.wiz_core.services.concurrency.DependsOn;
@@ -21,6 +22,10 @@ public class InitPlugin1 extends Kit {
     @Override
     protected Object doInBackground() {
         Log.e(TAG, "InitPlugin1 doInBackground");
+        if(Thread.currentThread() == Looper.getMainLooper().getThread()){
+            Log.e(TAG, "InitPlugin1 Must init in main thread");
+            throw new RuntimeException("Must not init in main thread");
+        }
         return null;
     }
 

@@ -70,7 +70,7 @@ public class PriorityThreadPoolExecutor extends ThreadPoolExecutor {
         ITask task = (ITask) runnable;
         task.setFinished(true);
         task.setError(throwable);
-        this.getQueue().recycleBlockedQueue();
+        getQueue().recycleBlockedQueue();
         super.afterExecute(runnable, throwable);
     }
 

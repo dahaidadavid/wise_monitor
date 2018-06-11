@@ -1,23 +1,18 @@
 package com.dave.android.wiz_core;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Context;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.NonNull;
-import com.dave.android.wiz_core.ActivityLifecycleManager.Callbacks;
 import com.dave.android.wiz_core.services.concurrency.DependsOn;
 import com.dave.android.wiz_core.services.concurrency.PriorityThreadPoolExecutor;
 import com.dave.android.wiz_core.services.concurrency.UnmetDependencyException;
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -106,6 +101,7 @@ public class WiseInitCenter {
 
         //为所有需要初始化的插件设置必要的参数和回调监听
         for (Kit kit : kits) {
+            kit.initializationTask.setCurrentRunningThread(kit.validateAnnotationThread());
             kit.injectParameters(context, this, kitInitializationCallback);
         }
 

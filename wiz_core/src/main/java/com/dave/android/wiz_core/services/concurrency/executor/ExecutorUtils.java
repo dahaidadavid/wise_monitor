@@ -18,6 +18,13 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class ExecutorUtils {
 
     private static final long DEFAULT_TERMINATION_TIMEOUT = 2L;
+    private static final HandleThreadExecutor HANDLE_THREAD_EXECUTOR;
+    private static final MainThreadExecutor MAIN_THREAD_EXECUTOR;
+
+    static {
+        MAIN_THREAD_EXECUTOR = new MainThreadExecutor(null);
+        HANDLE_THREAD_EXECUTOR = new HandleThreadExecutor(null);
+    }
 
     private ExecutorUtils() {
     }
@@ -41,6 +48,14 @@ public final class ExecutorUtils {
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadFactory);
         addDelayedShutdownHook(name, executor);
         return executor;
+    }
+
+    public static HandleThreadExecutor getHandleThreadExecutor() {
+        return HANDLE_THREAD_EXECUTOR;
+    }
+
+    public static MainThreadExecutor getMainThreadExecutor() {
+        return MAIN_THREAD_EXECUTOR;
     }
 
     public static final ThreadFactory getNamedThreadFactory(final String threadNameTemplate) {

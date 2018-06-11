@@ -2,6 +2,7 @@ package com.dave.android.wiz_core;
 
 import android.content.Context;
 import android.support.annotation.NonNull;
+import com.dave.android.wiz_core.services.concurrency.AsyncTask;
 import com.dave.android.wiz_core.services.concurrency.DependsOn;
 import com.dave.android.wiz_core.services.concurrency.KitConfig;
 import com.dave.android.wiz_core.services.concurrency.executor.HandleThreadExecutor;
@@ -37,7 +38,7 @@ public abstract class Kit<Result> implements Comparable<Kit> {
     }
 
     final void initialize() {
-        initializationTask.executeOnExecutor(mWiseInitCenter.getExecutorService(), 0, new Void[]{null});
+        initializationTask.executeOnExecutor(mWiseInitCenter.getExecutorService(), new Void[]{null});
     }
 
     public Context getContext() {
@@ -90,7 +91,7 @@ public abstract class Kit<Result> implements Comparable<Kit> {
         if (hasAnnotatedKitConfig()) {
             return kitConfigAnnotation.thread();
         }
-        return "thread";
+        return AsyncTask.THREAD_BACKGROUND;
     }
 
     protected Collection<ITask> getDependencies() {

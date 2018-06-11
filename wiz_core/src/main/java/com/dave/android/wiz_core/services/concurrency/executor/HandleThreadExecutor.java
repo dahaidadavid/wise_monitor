@@ -19,8 +19,8 @@ public class HandleThreadExecutor implements Executor {
             this.handler = handler;
         } else {
             HandlerThread mHandlerThread = new HandlerThread("HandleThreadExecutor");
-            mHandlerThread.run();
-            this.handler = new Handler(handler.getLooper());
+            mHandlerThread.start();
+            this.handler = new Handler(mHandlerThread.getLooper());
         }
     }
 

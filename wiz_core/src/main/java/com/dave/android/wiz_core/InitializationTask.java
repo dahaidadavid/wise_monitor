@@ -64,8 +64,10 @@ class InitializationTask<Result> extends AbsPriorityAsyncTask<Void, Void, Result
     }
 
     private TimingMetric createAndStartTimingMetric(String event) {
-        TimingMetric timingMetric = new TimingMetric(kit.getIdentifier() + "." + event, TIMING_METRIC_TAG);
+        TimingMetric timingMetric = new TimingMetric(kit.getIdentifier() + "." + event,
+                TIMING_METRIC_TAG);
         timingMetric.startMeasuring();
         return timingMetric;
     }
+
 }

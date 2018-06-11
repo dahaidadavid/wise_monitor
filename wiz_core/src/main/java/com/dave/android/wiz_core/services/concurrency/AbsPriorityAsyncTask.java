@@ -74,7 +74,7 @@ public abstract class AbsPriorityAsyncTask<Params, Progress, Result> extends Asy
         return (T) priorityTask;
     }
 
-    public final void executeOnExecutor(Executor exec,int flag,Params... params) {
+    public final void executeOnExecutor(ExecutorService exec, Params... params) {
         Executor executor = new ProxyExecutor(exec, this);
         super.executeOnExecutor(executor, params);
     }
