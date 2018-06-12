@@ -1,1 +1,1 @@
-include ':app', ':wiz_core'
+include ':app', ':wise_monitor'

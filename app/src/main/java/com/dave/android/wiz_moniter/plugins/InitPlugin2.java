@@ -8,7 +8,7 @@ import com.dave.android.wiz_core.services.concurrency.KitConfig;
 
 /**
  * @author rendawei
- * @date 2018/6/5
+ * @since 2018/6/5
  */
 @KitConfig(thread = AsyncTask.THREAD_HANDLER)
 @DependsOn(value = InitPlugin0.class)

@@ -10,7 +10,7 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
-            <option value="$PROJECT_DIR$/wiz_core" />
+            <option value="$PROJECT_DIR$/wise_monitor" />
           </set>
         </option>
         <option name="resolveModulePerSourceSet" value="false" />

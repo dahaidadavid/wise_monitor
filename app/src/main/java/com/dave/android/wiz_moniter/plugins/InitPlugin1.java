@@ -7,7 +7,7 @@ import com.dave.android.wiz_core.services.concurrency.DependsOn;
 
 /**
  * @author rendawei
- * @date 2018/6/5
+ * @since 2018/6/5
  */
 @DependsOn(value = {InitPlugin2.class})
 public class InitPlugin1 extends Kit {
